@@ -103,3 +103,7 @@ tasks:
       - kubectl -f ./k8s/config/ -n chronflow
       - kubectl -f ./k8s/infrastructure/ -n chronflow
       - kubectl -f ./k8s/api/ -n chronflow
+
+  swagger:
+    desc: Generate docs for swagger
+    cmd: swag init -g .\internal\api\handler.go --parseDependency --parseInternal

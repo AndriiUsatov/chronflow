@@ -1,0 +1,153 @@
+basePath: /api/v1
+definitions:
+  github_com_AndriiUsatov_chronflow_internal_model.JSONHeader:
+    additionalProperties:
+      items:
+        type: string
+      type: array
+    type: object
+  github_com_AndriiUsatov_chronflow_internal_model.TaskStatus:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    type: integer
+    x-enum-varnames:
+    - Pending
+    - Scheduled
+    - Completed
+    - Failed
+  http.Header:
+    additionalProperties:
+      items:
+        type: string
+      type: array
+    type: object
+  internal_api.APIError:
+    properties:
+      error:
+        type: string
+    type: object
+  internal_api.taskCreateResponse:
+    properties:
+      taskId:
+        type: string
+    type: object
+  internal_api.taskInput:
+    properties:
+      body:
+        type: string
+      headers:
+        $ref: '#/definitions/http.Header'
+      method:
+        type: string
+      runAt:
+        type: string
+      url:
+        type: string
+    required:
+    - method
+    - runAt
+    - url
+    type: object
+  internal_api.taskView:
+    properties:
+      body:
+        type: string
+      created:
+        type: string
+      errorMessage:
+        type: string
+      headers:
+        $ref: '#/definitions/github_com_AndriiUsatov_chronflow_internal_model.JSONHeader'
+      id:
+        type: string
+      method:
+        type: string
+      retryCount:
+        type: integer
+      runAt:
+        type: string
+      status:
+        $ref: '#/definitions/github_com_AndriiUsatov_chronflow_internal_model.TaskStatus'
+      updated:
+        type: string
+      url:
+        type: string
+    type: object
+host: localhost:80
+info:
+  contact: {}
+  termsOfService: http://swagger.io/terms/
+  title: Chronflow API
+  version: "1.0"
+paths:
+  /task/:
+    post:
+      consumes:
+      - application/json
+      description: Creates task to be processed
+      parameters:
+      - description: Task details
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api.taskInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.taskCreateResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.APIError'
+      summary: Add task
+      tags:
+      - task
+  /task/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get task by UUID
+      parameters:
+      - description: Task UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_api.taskView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_api.APIError'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_api.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_api.APIError'
+      summary: Show an task
+      tags:
+      - task
+swagger: "2.0"

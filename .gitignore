@@ -2,3 +2,6 @@
 /config.yaml
 bin
 /internal/pb/
+/cmd/api/config.yaml
+/cmd/scheduler/config.yaml
+/cmd/worker/config.yaml
