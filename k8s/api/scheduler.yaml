@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chronflow-scheduler-deployment
+  namespace: chronflow
+  labels:
+    app: chronflow-scheduler
+spec:
+  selector:
+    matchLabels:
+      app: chronflow-scheduler
+  template:
+    metadata:
+      labels:
+        app: chronflow-scheduler
+    spec:
+      containers:
+      - name: chronflow-scheduler
+        image: chronflow-scheduler:latest
+        imagePullPolicy: Always
+        envFrom:
+          - configMapRef:
+              name: chronflow-postgres-config
+          - configMapRef:
+              name: chronflow-nats-config
+          - secretRef:
+              name: chronflow-postgres-creds
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"          
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: chronflow
+  name: chronflow-scheduler-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: chronflow-scheduler-deployment
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50

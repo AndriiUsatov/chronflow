@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  clean:
+    desc: Clean binaries and protobuff compile results
+    cmds:
+      - rm internal/pb/*
+      - rm -rf bin
+  
+  proto:
+    desc: Compiles protobuff app dependecies
+    cmds: 
+      - protoc --proto_path=proto --go_out=internal/pb --go_opt=paths=source_relative --go-grpc_out=internal/pb --go-grpc_opt=paths=source_relative proto/*.proto
+  
+  build:linux:
+    desc: Build Chronflow applications for Linux
+    env:
+      GOOS: linux
+      GOARCH: amd64
+    cmds:
+      - go build -o bin/chronflow-api-linux ./cmd/api/main.go
+      - go build -o bin/chronflow-scheduler-linux ./cmd/scheduler/main.go
+      - go build -o bin/chronflow-worker-linux ./cmd/worker/main.go
+  
+  build:macOS:
+    desc: Build Chronflow applications for macOS
+    env:
+      GOOS: darwin
+      GOARCH: arm
+    cmds:
+      - go build -o bin/chronflow-api-darwin ./cmd/api/main.go
+      - go build -o bin/chronflow-scheduler-darwin ./cmd/scheduler/main.go
+      - go build -o bin/chronflow-worker-darwin ./cmd/worker/main.go
+  
+  build:windows:
+      desc: Build Chronflow applications for windows
+      env:
+        GOOS: windows
+        GOARCH: amd64  
+      cmds:
+      - go build -o bin/chronflow-api-windows.exe ./cmd/api/main.go
+      - go build -o bin/chronflow-scheduler-windows.exe ./cmd/scheduler/main.go
+      - go build -o bin/chronflow-worker-windows.exe ./cmd/worker/main.go
+
+  api:windows:
+    desc: Runs Chronflow REST & gRPC services app
+    cmds:
+      - bin/chronflow-api-windows.exe
+  
+  scheduler:windows:
+    desc: Runs Chronflow Scheduler
+    cmds:
+      - bin/chronflow-scheduler-windows.exe
+
+  worker:windows:
+    desc: Runs Chronflow Worker
+    cmds:
+      - bin/chronflow-worker-windows.exe
+
+  run:windows:
+    desc: Runs all services
+    env:
+      TZ: UTC
+    deps: [api:windows, scheduler:windows, worker:windows]
+  
+  image:api:
+    desc: Create API service image
+    internal: true
+    cmd: docker build -f ./build/api.Dockerfile -t chronflow-api:latest .
+  
+  image:scheduler:
+    desc: Create Scheduler service image
+    internal: true
+    cmd: docker build -f ./build/scheduler.Dockerfile -t chronflow-scheduler:latest .
+  
+  image:worker:
+    desc: Create Worker service image
+    internal: true
+    cmd: docker build -f ./build/worker.Dockerfile -t chronflow-worker:latest .
+  
+  image:
+    desc: Builds API, Scheduler and Worker images
+    deps: [image:api, image:scheduler, image:worker]
+    
+  apply:api:
+    desc: Apply API, Scheduler and Worker deployments
+    cmd: kubectl -f ./k8s/api -n chronflow
+    
+  apply:config:
+    desc: Apply configmaps
+    cmd: kubectl -f ./k8s/config -n chronflow
+    
+  apply:infrastructure:
+    desc: Apply postgres and NATS resources
+    cmd: kubectl -f ./k8s/infrastructure -n chronflow
+  
+  apply:
+    desc: Apply all k8s resources
+    cmds: 
+      - kubectl -f ./k8s/config/ -n chronflow
+      - kubectl -f ./k8s/infrastructure/ -n chronflow
+      - kubectl -f ./k8s/api/ -n chronflow

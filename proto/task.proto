@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option go_package = "github.com/AndriiUsatov/chronflow/internal/pb";
+
+
+message HeaderValues {
+    repeated string values = 1;
+}
+
+message ProtoTask {
+    string id = 1;
+    string url = 2;
+    string method = 3;
+    map<string, HeaderValues> headers = 4;
+    bytes body = 5;
+}

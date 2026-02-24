@@ -1,0 +1,25 @@
+apiVersion: jetstream.nats.io/v1beta2
+kind: Stream
+metadata:
+  name: tasks-stream
+  namespace: chronflow
+spec:
+  name: TASKS
+  subjects: ["tasks.process"]
+  storage: file
+  maxAge: 12h
+
+---
+
+apiVersion: jetstream.nats.io/v1beta2
+kind: Consumer
+metadata:
+  name: tasks-consumer
+  namespace: chronflow
+spec:
+  streamName: TASKS
+  durableName: TASK_CONS
+  deliverPolicy: all
+  maxDeliver: 20
+  ackPolicy: explicit
+  filterSubject: "tasks.process"

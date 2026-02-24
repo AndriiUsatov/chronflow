@@ -1,0 +1,11 @@
+bin/
+deployments/
+.gitignore
+./config.yaml
+README.md
+Taskfile.yml
+.git
+.vscode/
+build/
+vendor/
+internal/pb/*

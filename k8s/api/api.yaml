@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chronflow-api-deployment
+  namespace: chronflow
+  labels:
+    app: chronflow-api
+spec:
+  selector:
+    matchLabels:
+      app: chronflow-api
+  template:
+    metadata:
+      labels:
+        app: chronflow-api
+    spec:
+      containers:
+      - name: chronflow-api
+        image: chronflow-api:latest
+        imagePullPolicy: Always
+        envFrom:
+          - configMapRef:
+              name: chronflow-postgres-config
+          - configMapRef:
+              name: chronflow-api-config
+          - configMapRef:
+              name: chronflow-grpc-config
+          - secretRef:
+              name: chronflow-postgres-creds
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"          
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: grpc
+          containerPort: 50051
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: chronflow
+  name: chronflow-api-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: chronflow-api-deployment
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: chronflow-api-http-service
+  namespace: chronflow
+  labels:
+    app: chronflow-api
+spec:
+  type: LoadBalancer
+  selector:
+    app: chronflow-api
+  ports:
+  - name: rest-api
+    protocol: TCP
+    port: 80
+    targetPort: http
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: chronflow-api-grpc-service
+  namespace: chronflow
+  labels:
+    app: chronflow-api
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: chronflow-api
+  ports:
+  - name: grpc-api
+    protocol: TCP
+    port: 50051
+    targetPort: grpc

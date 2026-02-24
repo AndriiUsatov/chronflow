@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chronflow-worker-deployment
+  namespace: chronflow
+  labels:
+    app: chronflow-worker
+spec:
+  selector:
+    matchLabels:
+      app: chronflow-worker
+  template:
+    metadata:
+      labels:
+        app: chronflow-worker
+    spec:
+      containers:
+      - name: chronflow-worker
+        image: chronflow-worker:latest
+        imagePullPolicy: Always
+        envFrom:
+          - configMapRef:
+              name: chronflow-grpc-config
+          - configMapRef:
+              name: chronflow-nats-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"          
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  namespace: chronflow
+  name: chronflow-worker-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: chronflow-worker-deployment
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
