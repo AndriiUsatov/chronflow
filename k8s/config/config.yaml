@@ -47,3 +47,13 @@ metadata:
   namespace: chronflow
 data:
   CHRONFLOW_TASK_API_PORT: "8080"
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chronflow-janitor-config
+  namespace: chronflow
+data:
+  CHRONFLOW_JANITOR_HEARTBEAT_PORT: "8080"

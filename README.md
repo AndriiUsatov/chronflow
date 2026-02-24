@@ -34,12 +34,3 @@
         --set jetstream.nats.url=nats://nats.chronflow.svc.cluster.local:4222 \
         --wait
         ```
-    - Install resource mapping
-        ```
-        kubectl apply -f https://raw.githubusercontent.com/nats-io/nack/main/deploy/crds.yaml
-        
-        kubectl apply -f https://raw.githubusercontent.com/nats-io/nack/main/deploy/crds/jetstream.nats.io_streams.yaml
-        kubectl apply -f https://raw.githubusercontent.com/nats-io/nack/main/deploy/crds/jetstream.nats.io_consumers.yaml
-
-        kubectl apply -f https://raw.githubusercontent.com/nats-io/nack/main/deploy/crds/all.yaml
-        ```

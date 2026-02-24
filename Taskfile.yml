@@ -24,6 +24,7 @@ tasks:
       - go build -o bin/chronflow-api-linux ./cmd/api/main.go
       - go build -o bin/chronflow-scheduler-linux ./cmd/scheduler/main.go
       - go build -o bin/chronflow-worker-linux ./cmd/worker/main.go
+      - go build -o bin/chronflow-janitor-linux ./cmd/janitor/main.go
   
   build:macOS:
     desc: Build Chronflow applications for macOS
@@ -34,6 +35,7 @@ tasks:
       - go build -o bin/chronflow-api-darwin ./cmd/api/main.go
       - go build -o bin/chronflow-scheduler-darwin ./cmd/scheduler/main.go
       - go build -o bin/chronflow-worker-darwin ./cmd/worker/main.go
+      - go build -o bin/chronflow-janitor-darwin ./cmd/janitor/main.go
   
   build:windows:
       desc: Build Chronflow applications for windows
@@ -44,6 +46,7 @@ tasks:
       - go build -o bin/chronflow-api-windows.exe ./cmd/api/main.go
       - go build -o bin/chronflow-scheduler-windows.exe ./cmd/scheduler/main.go
       - go build -o bin/chronflow-worker-windows.exe ./cmd/worker/main.go
+      - go build -o bin/chronflow-janitor-windows.exe ./cmd/janitor/main.go
 
   api:windows:
     desc: Runs Chronflow REST & gRPC services app
@@ -59,12 +62,17 @@ tasks:
     desc: Runs Chronflow Worker
     cmds:
       - bin/chronflow-worker-windows.exe
+  
+  janitor:windows:
+    desc: Runs Chronflow Janitor
+    cmds:
+      - bin/chronflow-janitor-windows.exe
 
   run:windows:
     desc: Runs all services
     env:
       TZ: UTC
-    deps: [api:windows, scheduler:windows, worker:windows]
+    deps: [api:windows, scheduler:windows, worker:windows, janitor:windows]
   
   image:api:
     desc: Create API service image
@@ -79,11 +87,16 @@ tasks:
   image:worker:
     desc: Create Worker service image
     internal: true
-    cmd: docker build -f ./build/worker.Dockerfile -t chronflow-worker:latest .
+    cmd: docker build -f ./build/worker.Dockerfile -t chronflow-worker:latest . 
+
+  image:janitor:
+    desc: Create Worker service image
+    internal: true
+    cmd: docker build -f ./build/janitor.Dockerfile -t chronflow-janitor:latest .
   
   image:
     desc: Builds API, Scheduler and Worker images
-    deps: [image:api, image:scheduler, image:worker]
+    deps: [image:api, image:scheduler, image:worker, image:janitor]
     
   apply:api:
     desc: Apply API, Scheduler and Worker deployments
@@ -100,9 +113,9 @@ tasks:
   apply:
     desc: Apply all k8s resources
     cmds: 
-      - kubectl -f ./k8s/config/ -n chronflow
-      - kubectl -f ./k8s/infrastructure/ -n chronflow
-      - kubectl -f ./k8s/api/ -n chronflow
+      - kubectl apply -f ./k8s/config/ -n chronflow
+      - kubectl apply -f ./k8s/infrastructure/ -n chronflow
+      - kubectl apply -f ./k8s/api/ -n chronflow
 
   swagger:
     desc: Generate docs for swagger

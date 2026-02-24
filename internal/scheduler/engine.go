@@ -26,8 +26,6 @@ func (scheduler TaskScheduler) Run(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	go scheduler.runJanitor(ctx)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -82,18 +80,4 @@ func (scheduler TaskScheduler) processTasks(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (scheduler TaskScheduler) runJanitor(ctx context.Context) {
-	timer := time.NewTimer(0)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-timer.C:
-			scheduler.Repo.RecoverStuckTasks(ctx)
-			timer.Reset(1 * time.Minute)
-		}
-	}
 }

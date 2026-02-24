@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chronflow-janitor-deployment
+  namespace: chronflow
+  labels:
+    app: chronflow-janitor
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: chronflow-janitor
+  template:
+    metadata:
+      labels:
+        app: chronflow-janitor
+    spec:
+      containers:
+      - name: chronflow-janitor
+        image: chronflow-janitor:latest
+        imagePullPolicy: Always
+        envFrom:
+          - configMapRef:
+              name: chronflow-postgres-config
+          - configMapRef:
+              name: chronflow-janitor-config
+          - secretRef:
+              name: chronflow-postgres-creds
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "250m"          
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /heartbeat
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20

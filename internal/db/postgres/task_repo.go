@@ -180,3 +180,11 @@ func (repo pgTaskRepository) RecoverStuckTasks(ctx context.Context) error {
 
 	return err
 }
+
+func (repo pgTaskRepository) Ping(ctx context.Context) error {
+	_, err := repo.Db.ExecContext(
+		ctx,
+		fmt.Sprintf("SELECT 1 FROM %s.%s LIMIT 1", repo.taskSchema, repo.taskTable))
+
+	return err
+}
