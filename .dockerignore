@@ -9,3 +9,5 @@ Taskfile.yml
 build/
 vendor/
 internal/pb/*
+k8s/
+terraform/

@@ -16,6 +16,7 @@ type TaskScheduler struct {
 	Repo     db.TaskRepository
 	Notifier TaskNotifier
 	Queue    queue.TaskQueue
+	Metrics  *SchedulerMetrics
 }
 
 func (scheduler TaskScheduler) Run(ctx context.Context) error {
@@ -61,7 +62,6 @@ func (scheduler TaskScheduler) processAndReschedule(ctx context.Context, timer *
 		next = 10 * time.Millisecond
 	}
 	timer.Reset(next)
-
 	return nil
 }
 
@@ -76,6 +76,8 @@ func (scheduler TaskScheduler) processTasks(ctx context.Context) error {
 		if err := scheduler.Queue.PublishTask(ctx, task.ToProto()); err != nil {
 			log.Printf("Error on publishing message: %s. Error: %v", task.ID, err)
 			return err
+		} else {
+			scheduler.Metrics.taskScheduler.Inc()
 		}
 	}
 

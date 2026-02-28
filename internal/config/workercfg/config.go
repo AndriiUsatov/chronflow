@@ -13,6 +13,7 @@ type WorkerConfig struct {
 	GrpcTaskUpdateServerTransportProtocol string `mapstructure:"grpc_task_update_server_transp" validate:"required"`
 	GrpcTaskUpdateServerURL               string `mapstructure:"grpc_task_update_server_url" validate:"required"`
 	GrpcTaskUpdateServerPort              int    `mapstructure:"grpc_task_update_server_port" validate:"required"`
+	WorkerPort                            int    `mapstructure:"worker_port" validate:"required"`
 }
 
 func LoadWorkerConfig(path string) (cfg WorkerConfig, err error) {
@@ -30,6 +31,7 @@ func LoadWorkerConfig(path string) (cfg WorkerConfig, err error) {
 	viper.SetDefault("grpc_task_update_server_transp", "")
 	viper.SetDefault("grpc_task_update_server_url", "")
 	viper.SetDefault("grpc_task_update_server_port", 0)
+	viper.SetDefault("worker_port", 0)
 
 	if err = viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

@@ -21,6 +21,10 @@ import (
 	"github.com/google/uuid"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -29,12 +33,20 @@ const (
 	taskByIDEndpoint    = "/api/v1/task/:id"
 	taskSwaggerEndpoint = "/swagger/*any"
 	swaggerUI           = "/swagger/index.html"
+	metricsEndpoint     = "/metrics"
+)
+
+const (
+	statusLabel   = "status"
+	statusFail    = "fail"
+	statusSuccess = "success"
 )
 
 type taskAPIHandler struct {
 	addr    string
 	handler http.Handler
 	repo    db.TaskRepository
+	metrics apiMetrics
 }
 
 func (api taskAPIHandler) ListenAndServe(isPanic bool) error {
@@ -93,7 +105,7 @@ type taskView struct {
 // @Failure      404  {object}  APIError
 // @Failure      500  {object}  APIError
 // @Router       /task/{id} [get]
-func (api taskAPIHandler) getTaskByIDHandler(ctx *gin.Context) {
+func (api *taskAPIHandler) getTaskByIDHandler(ctx *gin.Context) {
 	id, err := uuid.Parse(ctx.Param("id"))
 
 	if err != nil {
@@ -133,7 +145,7 @@ func (api taskAPIHandler) getTaskByIDHandler(ctx *gin.Context) {
 // @Failure      404  {object}  APIError
 // @Failure      500  {object}  APIError
 // @Router       /task/ [post]
-func (api taskAPIHandler) addTaskHandler(ctx *gin.Context) {
+func (api *taskAPIHandler) addTaskHandler(ctx *gin.Context) {
 	var tsk taskInput
 	if err := ctx.ShouldBindJSON(&tsk); err != nil {
 		ctx.JSON(http.StatusBadRequest, APIError{err.Error()})
@@ -154,20 +166,36 @@ func (api taskAPIHandler) addTaskHandler(ctx *gin.Context) {
 	)
 
 	if err != nil {
+		api.metrics.taskProcessed.WithLabelValues(statusFail).Inc()
 		ctx.JSON(http.StatusInternalServerError, APIError{err.Error()})
 		return
 	}
 
+	api.metrics.taskProcessed.WithLabelValues(statusSuccess).Inc()
+
 	ctx.JSON(http.StatusOK, taskCreateResponse{id.String()})
 }
 
-func GetTaskRestServer(cfg config.ApiConfig, taskRepo db.TaskRepository) taskAPIHandler {
+type apiMetrics struct {
+	taskProcessed *prometheus.CounterVec
+}
+
+func GetTaskRestServer(cfg config.ApiConfig, taskRepo db.TaskRepository) *taskAPIHandler {
 	router := gin.Default()
 
-	result := taskAPIHandler{
+	result := &taskAPIHandler{
 		addr:    fmt.Sprintf(":%s", cfg.TaskAPIPort),
 		handler: router,
 		repo:    taskRepo,
+		metrics: apiMetrics{
+			taskProcessed: promauto.NewCounterVec(
+				prometheus.CounterOpts{
+					Name: "chronflow_api_task_processed",
+					Help: "Total count of processed task by API service",
+				},
+				[]string{statusLabel},
+			),
+		},
 	}
 
 	router.GET(taskSwaggerEndpoint, ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -176,6 +204,8 @@ func GetTaskRestServer(cfg config.ApiConfig, taskRepo db.TaskRepository) taskAPI
 	router.GET(home, func(ctx *gin.Context) {
 		ctx.Redirect(http.StatusSeeOther, swaggerUI)
 	})
+
+	router.GET(metricsEndpoint, gin.WrapH(promhttp.Handler()))
 
 	return result
 

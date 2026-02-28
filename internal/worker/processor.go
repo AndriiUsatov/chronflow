@@ -25,13 +25,14 @@ type TaskWorker struct {
 	httpClient    *http.Client
 	serviceClient pb.TaskServiceClient
 	grpcConn      *grpc.ClientConn
+	metrics       *WorkerMetrics
 }
 
 func (worker TaskWorker) Close() {
 	worker.grpcConn.Close()
 }
 
-func NewTaskWorker(ctx context.Context, queue queue.TaskQueue, target string, retryFor time.Duration) (TaskWorker, error) {
+func NewTaskWorker(ctx context.Context, queue queue.TaskQueue, target string, retryFor time.Duration, metrics *WorkerMetrics) (TaskWorker, error) {
 	globalTimer := time.NewTimer(retryFor)
 	defer globalTimer.Stop()
 
@@ -43,9 +44,9 @@ func NewTaskWorker(ctx context.Context, queue queue.TaskQueue, target string, re
 		case <-ctx.Done():
 			return TaskWorker{}, ctx.Err()
 		case <-globalTimer.C:
-			return tryConnect(target, queue, timer)
+			return tryConnect(target, queue, timer, metrics)
 		case <-timer.C:
-			res, err := tryConnect(target, queue, timer)
+			res, err := tryConnect(target, queue, timer, metrics)
 			if err == nil {
 				return res, nil
 			}
@@ -53,7 +54,7 @@ func NewTaskWorker(ctx context.Context, queue queue.TaskQueue, target string, re
 	}
 }
 
-func tryConnect(target string, queue queue.TaskQueue, timer *time.Timer) (TaskWorker, error) {
+func tryConnect(target string, queue queue.TaskQueue, timer *time.Timer, metrics *WorkerMetrics) (TaskWorker, error) {
 	// TODO: Replace insecure creds
 	conn, err := grpc.NewClient(
 		target,
@@ -88,6 +89,7 @@ func tryConnect(target string, queue queue.TaskQueue, timer *time.Timer) (TaskWo
 		},
 		serviceClient: client,
 		grpcConn:      conn,
+		metrics:       metrics,
 	}, nil
 }
 
@@ -125,12 +127,6 @@ func (worker TaskWorker) processTask(ctx context.Context, timer *time.Timer) (bo
 		return false, fmt.Errorf("Queue consume error: %w", err)
 	}
 
-	headers := http.Header{}
-
-	for k, v := range task.Headers {
-		headers[k] = v.Values
-	}
-
 	req, err := http.NewRequestWithContext(
 		ctx,
 		task.Method,
@@ -142,7 +138,12 @@ func (worker TaskWorker) processTask(ctx context.Context, timer *time.Timer) (bo
 		worker.handleTaskResult(ctx, task.Id, model.Failed, err.Error(), retries)
 		return true, nil
 	}
-	req.Header = http.Header(headers)
+
+	for k, v := range task.Headers {
+		for _, val := range v.Values {
+			req.Header.Add(k, val)
+		}
+	}
 
 	res, err := worker.httpClient.Do(req)
 
@@ -170,7 +171,13 @@ func (worker TaskWorker) handleTaskResult(ctx context.Context, id string, status
 		})
 
 		if res.Success && err == nil {
+			if status == model.Failed {
+				worker.metrics.taskProcessed.WithLabelValues(statusFail).Inc()
+			} else {
+				worker.metrics.taskProcessed.WithLabelValues(statusSuccess).Inc()
+			}
 			return
 		}
 	}
+	worker.metrics.taskProcessed.WithLabelValues(statusFail).Inc()
 }

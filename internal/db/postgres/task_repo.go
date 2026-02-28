@@ -160,8 +160,8 @@ func (repo pgTaskRepository) UpdateTaskStatus(ctx context.Context, id uuid.UUID,
 	return err
 }
 
-func (repo pgTaskRepository) RecoverStuckTasks(ctx context.Context) error {
-	_, err := repo.Db.ExecContext(
+func (repo pgTaskRepository) RecoverTasks(ctx context.Context, targetStatus model.TaskStatus) (int64, error) {
+	res, err := repo.Db.ExecContext(
 		ctx,
 		fmt.Sprintf(`
 			UPDATE %s.%s
@@ -176,9 +176,13 @@ func (repo pgTaskRepository) RecoverStuckTasks(ctx context.Context) error {
 				AND
 				retry_count < 5
 		`, repo.taskSchema, repo.taskTable),
-		model.Pending, model.Scheduled)
+		model.Pending, targetStatus)
 
-	return err
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
 }
 
 func (repo pgTaskRepository) Ping(ctx context.Context) error {

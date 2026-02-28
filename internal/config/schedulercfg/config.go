@@ -19,6 +19,7 @@ type SchedulerConfig struct {
 	NatsTaskStream           string `mapstructure:"nats_task_stream" validate:"required"`
 	NatsTaskToProcessSubject string `mapstructure:"nats_task_to_process_subject" validate:"required"`
 	NatsTaskToProcessDurable string `mapstructure:"nats_task_to_process_durable" validate:"required"`
+	SchedulerPort            int    `mapstructure:"scheduler_port" validate:"required"`
 }
 
 func LoadSchedulerConfig(path string) (cfg SchedulerConfig, err error) {
@@ -42,6 +43,7 @@ func LoadSchedulerConfig(path string) (cfg SchedulerConfig, err error) {
 	viper.SetDefault("nats_task_stream", "")
 	viper.SetDefault("nats_task_to_process_subject", "")
 	viper.SetDefault("nats_task_to_process_durable", "")
+	viper.SetDefault("scheduler_port", 0)
 
 	if err = viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {

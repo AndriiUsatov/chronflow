@@ -49,11 +49,16 @@ func main() {
 	}
 	defer queue.Close()
 
+	// Metrics API
+	metricsServer := scheduler.NewMetricsServer(cfg.SchedulerPort)
+	go metricsServer.ListenAndServe()
+
 	// Collects Tasks from Db and send it to `Worker`
 	tsch := scheduler.TaskScheduler{
 		Repo:     taskRepo,
 		Notifier: notifier,
 		Queue:    queue,
+		Metrics:  metricsServer.Metrics,
 	}
 
 	err = tsch.Run(ctx)

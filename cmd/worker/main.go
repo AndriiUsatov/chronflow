@@ -35,8 +35,12 @@ func main() {
 	}
 	defer queue.Close()
 
+	// Metrics server
+	metricsServer := worker.NewMetricsServer(cfg.WorkerPort)
+	go metricsServer.ListenAndServe()
+
 	// Worker
-	wrk, err := worker.NewTaskWorker(ctx, queue, fmt.Sprintf("%s:%d", cfg.GrpcTaskUpdateServerURL, cfg.GrpcTaskUpdateServerPort), 5*time.Minute)
+	wrk, err := worker.NewTaskWorker(ctx, queue, fmt.Sprintf("%s:%d", cfg.GrpcTaskUpdateServerURL, cfg.GrpcTaskUpdateServerPort), 5*time.Minute, metricsServer.Metrics)
 	if err != nil {
 		panic(err)
 	}

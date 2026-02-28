@@ -35,7 +35,7 @@ spec:
             memory: "256Mi"
             cpu: "500m"
         ports:
-        - name: http
+        - name: rest
           containerPort: 8080
         - name: grpc
           containerPort: 50051
@@ -79,7 +79,7 @@ spec:
   - name: rest-api
     protocol: TCP
     port: 80
-    targetPort: http
+    targetPort: rest
 ---
 
 apiVersion: v1

@@ -30,11 +30,12 @@ func main() {
 	defer taskRepo.Db.Close()
 
 	// Hearbeat
-	go janitor.NewHeartBeatHandler(cfg, taskRepo).ListenAndServe()
+	server := janitor.NewHeartBeatHandler(cfg, taskRepo)
+	go server.ListenAndServe()
 
 	// Janitor
 	jntr := postgres.NewPostgresJanitor(taskRepo)
-	go jntr.Run(ctx)
+	go jntr.Run(ctx, server.Metrics)
 
 	<-ctx.Done()
 }

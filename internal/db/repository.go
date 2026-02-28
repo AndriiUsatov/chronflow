@@ -16,6 +16,6 @@ type TaskRepository interface {
 	FetchReadyTasks(ctx context.Context, limit int) (model.Tasks, error)
 	FindNextRunAtTask(ctx context.Context) (time.Time, error)
 	UpdateTaskStatus(ctx context.Context, id uuid.UUID, status model.TaskStatus, errMsg string) error
-	RecoverStuckTasks(ctx context.Context) error
+	RecoverTasks(ctx context.Context, targetStatus model.TaskStatus) (int64, error)
 	Ping(ctx context.Context) error
 }

@@ -86,7 +86,7 @@ tasks:
   
   image:worker:
     desc: Create Worker service image
-    internal: true
+    internal: false
     cmd: docker build -f ./build/worker.Dockerfile -t chronflow-worker:latest . 
 
   image:janitor:
@@ -120,3 +120,82 @@ tasks:
   swagger:
     desc: Generate docs for swagger
     cmd: swag init -g .\internal\api\handler.go --parseDependency --parseInternal
+
+
+  tf:deploy:namespace:
+    cmds:
+      - terraform -chdir=terraform/00_init init -upgrade
+      - terraform -chdir=terraform/00_init plan -out=tfplan
+      - terraform -chdir=terraform/00_init apply tfplan 
+
+  tf:destroy:namespace:
+    cmd: terraform -chdir=terraform/00_init destroy -auto-approve
+
+  tf:deploy:infrastructure:
+    cmds:
+      - terraform -chdir=terraform/01_infrastructure init -upgrade
+      - terraform -chdir=terraform/01_infrastructure plan -out=tfplan
+      - terraform -chdir=terraform/01_infrastructure apply tfplan 
+
+  tf:destroy:infrastructure:
+    cmd: terraform -chdir=terraform/01_infrastructure destroy -auto-approve
+
+  tf:deploy:chronflow:
+    cmds:
+      - terraform -chdir=terraform/02_chronflow init -upgrade
+      - terraform -chdir=terraform/02_chronflow plan -out=tfplan
+      - terraform -chdir=terraform/02_chronflow apply tfplan 
+
+  tf:destroy:chronflow:
+    cmd: terraform -chdir=terraform/02_chronflow destroy -auto-approve
+
+  tf:deploy:monitoring:
+      - terraform -chdir=terraform/03_monitoring init -upgrade
+      - terraform -chdir=terraform/03_monitoring plan -out=tfplan
+      - terraform -chdir=terraform/03_monitoring apply tfplan 
+
+  tf:destroy:monitoring:
+    cmd: terraform -chdir=terraform/03_monitoring destroy -auto-approve
+
+  tf:destroy:
+    requires:
+      vars: [GRAFANA_USER, GRAFANA_PASSWORD, GRAFANA_URL]
+    env:
+      TF_VAR_grafana_url: "{{.GRAFANA_URL}}"
+      TF_VAR_grafana_api_token: "{{.GRAFANA_USER}}:{{.GRAFANA_PASSWORD}}"
+    cmds:
+      - terraform -chdir=terraform/03_monitoring destroy -auto-approve
+      - terraform -chdir=terraform/02_chronflow destroy -auto-approve
+      - terraform -chdir=terraform/01_infrastructure destroy -auto-approve
+      - terraform -chdir=terraform/00_init destroy -auto-approve
+
+  tf:deploy:
+    requires:
+      vars: [PG_USER, PG_PASSWORD, GRAFANA_USER, GRAFANA_PASSWORD, GRAFANA_URL ]
+    env:
+      TF_VAR_grafana_url: "{{.GRAFANA_URL}}"
+      TF_VAR_grafana_api_token: "{{.GRAFANA_USER}}:{{.GRAFANA_PASSWORD}}"
+    cmds:
+      - terraform -chdir=terraform/00_init init -upgrade
+      - terraform -chdir=terraform/00_init plan -out=tfplan
+      - terraform -chdir=terraform/00_init apply tfplan 
+      - kubectl create secret generic chronflow-postgres-creds --from-literal=CHRONFLOW_PG_USER={{.PG_USER}} --from-literal=CHRONFLOW_PG_PWD={{.PG_PASSWORD}} -n chronflow
+      - kubectl create secret generic grafana-admin-creds --from-literal=ADMIN_USER={{.GRAFANA_USER}} --from-literal=ADMIN_PASSWORD={{.GRAFANA_PASSWORD}} -n monitoring
+      - kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+      - |
+        kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
+      - terraform -chdir=terraform/01_infrastructure init -upgrade
+      - terraform -chdir=terraform/01_infrastructure plan -out=tfplan
+      - terraform -chdir=terraform/01_infrastructure apply tfplan 
+      - terraform -chdir=terraform/02_chronflow init -upgrade
+      - terraform -chdir=terraform/02_chronflow plan -out=tfplan
+      - terraform -chdir=terraform/02_chronflow apply tfplan 
+      - terraform -chdir=terraform/03_monitoring init -upgrade
+      - terraform -chdir=terraform/03_monitoring plan -out=tfplan
+      - terraform -chdir=terraform/03_monitoring apply tfplan
+
+  localDeploy:
+    cmd: task tf:deploy PG_USER="postgres" PG_PASSWORD="A123Abcpo2" GRAFANA_USER="admin" GRAFANA_PASSWORD="123456" GRAFANA_URL="http://localhost:8081"
+  
+  localDestroy:
+    cmd: task tf:destroy GRAFANA_USER="admin" GRAFANA_PASSWORD="123456" GRAFANA_URL="http://localhost:8081"

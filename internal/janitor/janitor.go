@@ -5,5 +5,5 @@ import (
 )
 
 type Janitor interface {
-	Run(context.Context) error
+	Run(context.Context, *JanitorMetrics) error
 }
