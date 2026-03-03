@@ -17,7 +17,9 @@ import (
 )
 
 const (
-	retries = 3
+	retries              = 3
+	userAgentHeaderKey   = "User-Agent"
+	userAgentHeaderValue = "ChronFlow-Worker/1.0"
 )
 
 type TaskWorker struct {
@@ -144,6 +146,7 @@ func (worker TaskWorker) processTask(ctx context.Context, timer *time.Timer) (bo
 			req.Header.Add(k, val)
 		}
 	}
+	req.Header.Add(userAgentHeaderKey, userAgentHeaderValue)
 
 	res, err := worker.httpClient.Do(req)
 

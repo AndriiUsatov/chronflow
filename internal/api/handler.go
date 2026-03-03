@@ -8,6 +8,7 @@ package api
 // @BasePath  /api/v1
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -29,8 +30,9 @@ import (
 
 const (
 	home                = "/"
-	taskEndpoint        = "/api/v1/task"
-	taskByIDEndpoint    = "/api/v1/task/:id"
+	taskGroup           = "/api/v1"
+	taskEndpoint        = "/task"
+	taskByIDEndpoint    = "/task/:id"
 	taskSwaggerEndpoint = "/swagger/*any"
 	swaggerUI           = "/swagger/index.html"
 	metricsEndpoint     = "/metrics"
@@ -40,6 +42,11 @@ const (
 	statusLabel   = "status"
 	statusFail    = "fail"
 	statusSuccess = "success"
+)
+
+const (
+	userAgentHeaderKey   = "User-Agent"
+	userAgentHeaderValue = "ChronFlow-Worker/1.0"
 )
 
 type taskAPIHandler struct {
@@ -62,11 +69,11 @@ func (api taskAPIHandler) ListenAndServe(isPanic bool) error {
 }
 
 type taskInput struct {
-	URL     string      `json:"url" binding:"required"`
-	Method  string      `json:"method" binding:"required"`
-	RunAt   time.Time   `json:"runAt" binding:"required"`
-	Headers http.Header `json:"headers"`
-	Body    string      `json:"body"`
+	URL     string          `json:"url" binding:"required"`
+	Method  string          `json:"method" binding:"required"`
+	RunAt   time.Time       `json:"runAt" binding:"required"`
+	Headers http.Header     `json:"headers"`
+	Body    json.RawMessage `json:"body"`
 }
 
 type taskCreateResponse struct {
@@ -83,7 +90,7 @@ type taskView struct {
 	URL     string
 	Method  string
 	Headers model.JSONHeader
-	Body    string
+	Body    json.RawMessage
 
 	Status       model.TaskStatus
 	RunAt        time.Time
@@ -121,9 +128,10 @@ func (api *taskAPIHandler) getTaskByIDHandler(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, taskView{
 		ID:           task.ID,
+		URL:          task.URL,
 		Method:       task.Method,
 		Headers:      task.Headers,
-		Body:         string(task.Body),
+		Body:         json.RawMessage(task.Body),
 		Status:       task.Status,
 		RunAt:        task.RunAt,
 		RetryCount:   task.RetryCount,
@@ -131,6 +139,16 @@ func (api *taskAPIHandler) getTaskByIDHandler(ctx *gin.Context) {
 		Updated:      task.Updated,
 		ErrorMessage: task.ErrorMessage,
 	})
+}
+
+func LoopPreventionMiddleware(ctx *gin.Context) {
+	if ctx.GetHeader(userAgentHeaderKey) == userAgentHeaderValue {
+		ctx.AbortWithStatusJSON(http.StatusLoopDetected, gin.H{
+			"error": "Recursive task scheduling is not permitted.",
+		})
+		return
+	}
+	ctx.Next()
 }
 
 // AddTask godoc
@@ -198,9 +216,12 @@ func GetTaskRestServer(cfg config.ApiConfig, taskRepo db.TaskRepository) *taskAP
 		},
 	}
 
+	v1 := router.Group(taskGroup)
+	v1.Use(LoopPreventionMiddleware)
+	v1.GET(taskByIDEndpoint, result.getTaskByIDHandler)
+	v1.POST(taskEndpoint, result.addTaskHandler)
+
 	router.GET(taskSwaggerEndpoint, ginSwagger.WrapHandler(swaggerFiles.Handler))
-	router.GET(taskByIDEndpoint, result.getTaskByIDHandler)
-	router.POST(taskEndpoint, result.addTaskHandler)
 	router.GET(home, func(ctx *gin.Context) {
 		ctx.Redirect(http.StatusSeeOther, swaggerUI)
 	})
